@@ -7,7 +7,7 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "graburl": "./dist/cli/run.js"
+    "snatchurl": "./dist/cli/run.js"
   },
   "files": [
     "dist"
@@ -21,11 +21,11 @@
     "downloader",
     "cli",
     "url",
-    "grab",
+    "snatch",
     "fetch",
     "media"
   ],
-  "author": "shivakumar pinnasi",
+  "author": "siva kumar pinnasi",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
