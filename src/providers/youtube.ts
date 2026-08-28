@@ -136,6 +136,9 @@ export class YoutubeProvider implements Provider {
           url: bestFormat.url,
           filename: title,
           contentType,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (SmartTV; LN46C650) AppleWebKit/530.1 (KHTML, like Gecko) Version/4.0 Safari/530.1',
+          },
         };
       }
     } catch (err: any) {
