@@ -1,8 +1,11 @@
 {
-  "name": "graburl",
-  "version": "0.2.0",
+  "name": "@sivapinnasi/graburl",
+  "version": "0.2.1",
   "description": "A CLI URL downloader framework for Node.js",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
