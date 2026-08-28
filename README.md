@@ -1,4 +1,4 @@
-# @sivapinnasi/graburl
+# snatchurl
 
 A lightweight, zero-dependency CLI URL downloader framework for Node.js.
 
@@ -14,37 +14,37 @@ A lightweight, zero-dependency CLI URL downloader framework for Node.js.
 
 ### Globally or Locally via NPM
 ```bash
-npm install -g @sivapinnasi/graburl
+npm install -g snatchurl
 ```
 
 ### Or run directly with npx
 ```bash
-npx @sivapinnasi/graburl <url>
+npx snatchurl <url>
 ```
 
 ## CLI Usage
 
 ### Basic usage
 ```bash
-npx @sivapinnasi/graburl "https://example.com/video.mp4"
+npx snatchurl "https://example.com/video.mp4"
 ```
 
 ### Options
 ```bash
 # Save to a specific folder
-npx @sivapinnasi/graburl "https://example.com/video.mp4" --output ./my-videos
+npx snatchurl "https://example.com/video.mp4" --output ./my-videos
 
 # Rename the downloaded file
-npx @sivapinnasi/graburl "https://example.com/video.mp4" --filename sample-video
+npx snatchurl "https://example.com/video.mp4" --filename sample-video
 
 # Output progress and events as JSON lines
-npx @sivapinnasi/graburl "https://example.com/video.mp4" --json
+npx snatchurl "https://example.com/video.mp4" --json
 ```
 
 ## Programmatic API Usage
 
 ```typescript
-import { downloadFile, detectSource } from '@sivapinnasi/graburl';
+import { downloadFile, detectSource } from 'snatchurl';
 
 // 1. Detect source
 const { providerName, mediaInfo } = await detectSource('https://example.com/file.zip');
