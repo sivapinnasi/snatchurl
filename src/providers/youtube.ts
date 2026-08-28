@@ -1,5 +1,8 @@
 import type { Provider, MediaInfo } from './index.js';
-import ytdl from '@distube/ytdl-core';
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { execSync } from 'child_process';
 
 export function getYoutubeVideoId(urlStr: string): string | null {
   try {
@@ -62,6 +65,46 @@ export function extractJsonFromHtml(html: string, prefix: string): any {
   return null;
 }
 
+function getBinaryPath(): string {
+  const snatchDir = path.join(os.homedir(), '.snatchurl');
+  if (!fs.existsSync(snatchDir)) {
+    fs.mkdirSync(snatchDir, { recursive: true });
+  }
+  const isWindows = process.platform === 'win32';
+  return path.join(snatchDir, isWindows ? 'yt-dlp.exe' : 'yt-dlp');
+}
+
+async function ensureBinary(): Promise<string> {
+  const binaryPath = getBinaryPath();
+  if (fs.existsSync(binaryPath)) {
+    return binaryPath;
+  }
+
+  console.log('\n📥  Downloading YouTube helper binary (yt-dlp) from GitHub...');
+  
+  let downloadUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
+  if (process.platform === 'win32') {
+    downloadUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
+  } else if (process.platform === 'darwin') {
+    downloadUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos';
+  }
+
+  const response = await fetch(downloadUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download YouTube helper binary: HTTP ${response.status}`);
+  }
+
+  const buffer = await response.arrayBuffer();
+  fs.writeFileSync(binaryPath, Buffer.from(buffer));
+  
+  if (process.platform !== 'win32') {
+    fs.chmodSync(binaryPath, '755'); // Make executable
+  }
+  
+  console.log('✓  Helper binary downloaded successfully.\n');
+  return binaryPath;
+}
+
 export class YoutubeProvider implements Provider {
   name = 'youtube';
 
@@ -71,37 +114,25 @@ export class YoutubeProvider implements Provider {
   }
 
   async resolve(urlStr: string): Promise<MediaInfo> {
+    const binaryPath = await ensureBinary();
+    
     try {
-      const info = await ytdl.getInfo(urlStr);
-      const title = info.videoDetails?.title || 'youtube-video';
+      // 1. Get the direct progressive video URL using -g (with format selection "-f b" to suppress warning and select best pre-merged stream)
+      const cmd = `"${binaryPath}" -g -f b "${urlStr}" --no-playlist --no-warnings`;
+      const streamUrl = execSync(cmd, { encoding: 'utf8' }).trim();
       
-      // Filter for progressive formats (video + audio in one stream)
-      const formats = ytdl.filterFormats(info.formats, 'audioandvideo');
-      
-      if (formats.length === 0) {
-        throw new Error('No progressive video formats found.');
+      if (!streamUrl || !streamUrl.startsWith('http')) {
+        throw new Error('Could not resolve direct stream link');
       }
 
-      // Sort formats by quality resolution (highest first)
-      const getQualityNum = (label?: string) => {
-        if (!label) return 0;
-        const num = parseInt(label.replace(/[^0-9]/g, ''), 10);
-        return isNaN(num) ? 0 : num;
-      };
-
-      const bestFormat = formats.sort((a, b) => {
-        return getQualityNum(b.qualityLabel) - getQualityNum(a.qualityLabel);
-      })[0];
-
-      let contentType = 'video/mp4';
-      if (bestFormat.mimeType) {
-        contentType = bestFormat.mimeType.split(';')[0].trim();
-      }
+      // 2. Get the video title using --get-title
+      const titleCmd = `"${binaryPath}" --get-title "${urlStr}" --no-playlist --no-warnings`;
+      const title = execSync(titleCmd, { encoding: 'utf8' }).trim() || 'youtube-video';
 
       return {
-        url: bestFormat.url,
+        url: streamUrl,
         filename: title,
-        contentType,
+        contentType: 'video/mp4',
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         }
