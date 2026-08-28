@@ -75,6 +75,78 @@ export class YoutubeProvider implements Provider {
       throw new Error(`Could not extract video ID from YouTube URL: "${urlStr}"`);
     }
 
+    // innerTube player endpoint
+    const playerUrl = 'https://www.youtube.com/youtubei/v1/player';
+    
+    try {
+      // Mimic TVHTML5 client which yields un-ciphered progressive stream URLs
+      const response = await fetch(playerUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (SmartTV; LN46C650) AppleWebKit/530.1 (KHTML, like Gecko) Version/4.0 Safari/530.1',
+        },
+        body: JSON.stringify({
+          videoId,
+          context: {
+            client: {
+              clientName: 'TVHTML5',
+              clientVersion: '7.20230405.08.01',
+              clientScreen: 'WATCH',
+              hl: 'en',
+              gl: 'US',
+            },
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`InnerTube returned HTTP ${response.status}`);
+      }
+
+      const playerResponse = await response.json() as any;
+
+      if (playerResponse?.playabilityStatus?.status === 'ERROR') {
+        const reason = playerResponse.playabilityStatus.reason || 'Video unavailable';
+        throw new Error(`YouTube API error: ${reason}`);
+      }
+
+      const title = playerResponse.videoDetails?.title || 'youtube-video';
+      const formats = playerResponse.streamingData?.formats || [];
+      const directFormats = formats.filter((f: any) => f.url);
+
+      if (directFormats.length > 0) {
+        // Sort by quality resolution
+        const getQualityNum = (label?: string) => {
+          if (!label) return 0;
+          const num = parseInt(label.replace(/[^0-9]/g, ''), 10);
+          return isNaN(num) ? 0 : num;
+        };
+
+        const bestFormat = directFormats.sort((a: any, b: any) => {
+          return getQualityNum(b.qualityLabel) - getQualityNum(a.qualityLabel);
+        })[0];
+
+        let contentType = 'video/mp4';
+        if (bestFormat.mimeType) {
+          contentType = bestFormat.mimeType.split(';')[0].trim();
+        }
+
+        return {
+          url: bestFormat.url,
+          filename: title,
+          contentType,
+        };
+      }
+    } catch (err: any) {
+      // Log InnerTube errors and fall back to scraping
+    }
+
+    // Fallback to page scraping if InnerTube TV context fails
+    return this.resolveFallback(videoId);
+  }
+
+  private async resolveFallback(videoId: string): Promise<MediaInfo> {
     const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
     const response = await fetch(watchUrl, {
       headers: {
@@ -104,7 +176,6 @@ export class YoutubeProvider implements Provider {
       throw new Error('No direct stream link available for this YouTube video (signature deciphering required).');
     }
 
-    // Sort by video resolution (qualityLabel) highest first
     const getQualityNum = (label?: string) => {
       if (!label) return 0;
       const num = parseInt(label.replace(/[^0-9]/g, ''), 10);
@@ -115,7 +186,6 @@ export class YoutubeProvider implements Provider {
       return getQualityNum(b.qualityLabel) - getQualityNum(a.qualityLabel);
     })[0];
 
-    // Determine content type
     let contentType = 'video/mp4';
     if (bestFormat.mimeType) {
       contentType = bestFormat.mimeType.split(';')[0].trim();

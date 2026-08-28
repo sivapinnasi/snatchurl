@@ -7,6 +7,7 @@ export interface MediaInfo {
   url: string;
   filename?: string;
   contentType?: string;
+  headers?: Record<string, string>;
 }
 
 export interface Provider {
